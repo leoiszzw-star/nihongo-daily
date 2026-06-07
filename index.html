@@ -90,6 +90,15 @@
                     </div>
                     <div class="module-arrow">›</div>
                 </div>
+
+                <div class="module-card" data-page="scenes">
+                    <div class="module-icon">🎬</div>
+                    <div class="module-info">
+                        <h3>场景学习</h3>
+                        <p>日剧片段沉浸式学习</p>
+                    </div>
+                    <div class="module-arrow">›</div>
+                </div>
             </div>
 
             <!-- Calendar Heatmap -->
@@ -254,6 +263,32 @@
             </div>
         </div>
 
+        <!-- Scenes Screen -->
+        <div id="scenes" class="screen">
+            <header class="sub-header">
+                <button class="back-btn" data-page="home">‹</button>
+                <h2>🎬 场景学习</h2>
+                <div class="header-action"></div>
+            </header>
+
+            <div class="scene-list" id="scene-list"></div>
+        </div>
+
+        <!-- Scene Detail Screen -->
+        <div id="scene-detail" class="screen">
+            <header class="sub-header">
+                <button class="back-btn" data-page="scenes">‹</button>
+                <h2 id="scene-detail-title">场景</h2>
+                <div class="header-action"></div>
+            </header>
+
+            <div class="scene-video-wrap" id="scene-video-wrap"></div>
+
+            <div class="scene-dialogue" id="scene-dialogue"></div>
+
+            <div class="scene-tip" id="scene-tip"></div>
+        </div>
+
         <!-- Achievements Screen -->
         <div id="achievements" class="screen">
             <header class="sub-header">
@@ -290,6 +325,7 @@
     </div>
 
     <script src="data.js"></script>
+    <script src="scenes.js"></script>
     <script src="app.js"></script>
     <script>
         if ('serviceWorker' in navigator) {

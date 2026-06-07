@@ -276,6 +276,7 @@ class NihongoApp {
         if (page === 'vocab') this.renderVocab();
         if (page === 'quiz') this.startQuiz();
         if (page === 'review') this.initReview();
+        if (page === 'scenes') this.renderScenes();
         if (page === 'achievements') this.renderAchievements();
     }
 
@@ -758,6 +759,65 @@ class NihongoApp {
             `;
             container.appendChild(el);
         }
+    }
+
+    // === SCENES ===
+
+    renderScenes() {
+        const container = document.getElementById('scene-list');
+        if (!container) return;
+        container.innerHTML = '';
+
+        for (const scene of SCENES) {
+            const card = document.createElement('div');
+            card.className = 'scene-card';
+            card.innerHTML = `
+                <div class="scene-card-header">
+                    <span class="scene-card-title">${scene.title}</span>
+                    <span class="scene-level">${scene.level}</span>
+                </div>
+                <div class="scene-card-source">📺 ${scene.source}</div>
+                <div class="scene-card-keywords">
+                    ${scene.keywords.map(k => `<span class="scene-keyword">${k}</span>`).join('')}
+                </div>
+            `;
+            card.addEventListener('click', () => {
+                this.vibrate(5);
+                this.showSceneDetail(scene);
+            });
+            container.appendChild(card);
+        }
+    }
+
+    showSceneDetail(scene) {
+        this.navigate('scene-detail');
+        document.getElementById('scene-detail-title').textContent = scene.title;
+
+        // Video
+        const videoWrap = document.getElementById('scene-video-wrap');
+        const startParam = scene.startTime ? `&start=${scene.startTime}` : '';
+        videoWrap.innerHTML = `
+            <iframe src="https://www.youtube.com/embed/${scene.youtubeId}?rel=0${startParam}"
+                allowfullscreen allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture">
+            </iframe>
+        `;
+
+        // Dialogue
+        const dialogueEl = document.getElementById('scene-dialogue');
+        dialogueEl.innerHTML = '';
+        for (const line of scene.dialogue) {
+            const div = document.createElement('div');
+            div.className = 'dialogue-line';
+            div.innerHTML = `
+                <div class="dialogue-jp">${line.jp}</div>
+                <div class="dialogue-romaji">${line.romaji}</div>
+                <div class="dialogue-cn">${line.cn}</div>
+            `;
+            dialogueEl.appendChild(div);
+        }
+
+        // Tip
+        document.getElementById('scene-tip').textContent = scene.tip;
     }
 
     // === UTILS ===
