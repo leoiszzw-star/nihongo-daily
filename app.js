@@ -1,4 +1,4 @@
-// === Japanese Daily - Main App Logic ===
+// === Japanese Daily - Main App Logic (v2 Optimized) ===
 
 class NihongoApp {
     constructor() {
@@ -14,22 +14,150 @@ class NihongoApp {
         this.kanaQuizCorrect = 0;
         this.reviewQueue = [];
         this.reviewIndex = 0;
+        this.audioCtx = null;
 
         this.init();
     }
 
+    // === Audio Feedback ===
+    getAudioCtx() {
+        if (!this.audioCtx) {
+            this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        return this.audioCtx;
+    }
+
+    playSound(type) {
+        try {
+            const ctx = this.getAudioCtx();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+
+            if (type === 'correct') {
+                osc.frequency.setValueAtTime(523, ctx.currentTime); // C5
+                osc.frequency.setValueAtTime(659, ctx.currentTime + 0.1); // E5
+                osc.frequency.setValueAtTime(784, ctx.currentTime + 0.2); // G5
+                gain.gain.setValueAtTime(0.15, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.4);
+            } else if (type === 'wrong') {
+                osc.frequency.setValueAtTime(200, ctx.currentTime);
+                osc.frequency.setValueAtTime(180, ctx.currentTime + 0.15);
+                osc.type = 'sawtooth';
+                gain.gain.setValueAtTime(0.1, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.3);
+            } else if (type === 'tap') {
+                osc.frequency.setValueAtTime(800, ctx.currentTime);
+                gain.gain.setValueAtTime(0.05, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.05);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.05);
+            } else if (type === 'achievement') {
+                osc.frequency.setValueAtTime(523, ctx.currentTime);
+                osc.frequency.setValueAtTime(659, ctx.currentTime + 0.15);
+                osc.frequency.setValueAtTime(784, ctx.currentTime + 0.3);
+                osc.frequency.setValueAtTime(1047, ctx.currentTime + 0.45);
+                gain.gain.setValueAtTime(0.15, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.7);
+                osc.start(ctx.currentTime);
+                osc.stop(ctx.currentTime + 0.7);
+            }
+        } catch (e) { /* audio not supported */ }
+    }
+
+    vibrate(ms = 10) {
+        if (navigator.vibrate) navigator.vibrate(ms);
+    }
+
+    // === Confetti ===
+    showConfetti() {
+        const container = document.createElement('div');
+        container.className = 'confetti-container';
+        document.body.appendChild(container);
+
+        const colors = ['#6c63ff', '#4ecdc4', '#ffd93d', '#ff6b6b', '#8b83ff'];
+        for (let i = 0; i < 40; i++) {
+            const confetti = document.createElement('div');
+            confetti.className = 'confetti';
+            confetti.style.left = Math.random() * 100 + '%';
+            confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+            confetti.style.animationDelay = Math.random() * 0.5 + 's';
+            confetti.style.animationDuration = (1.5 + Math.random()) + 's';
+            container.appendChild(confetti);
+        }
+
+        setTimeout(() => container.remove(), 3000);
+    }
+
+    // === Achievement ===
+    checkAchievements() {
+        if (!this.state.achievements) this.state.achievements = [];
+
+        for (const ach of ACHIEVEMENTS) {
+            if (this.state.achievements.includes(ach.id)) continue;
+            if (ach.condition(this.state)) {
+                this.state.achievements.push(ach.id);
+                this.saveState();
+                this.showAchievementToast(ach);
+            }
+        }
+    }
+
+    showAchievementToast(ach) {
+        this.playSound('achievement');
+        this.vibrate(50);
+
+        const toast = document.createElement('div');
+        toast.className = 'achievement-toast';
+        toast.innerHTML = `
+            <span class="toast-icon">${ach.icon}</span>
+            <div class="toast-text">
+                <div class="toast-title">🏅 成就解锁！</div>
+                <div>${ach.name} — ${ach.desc}</div>
+            </div>
+        `;
+        document.body.appendChild(toast);
+
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => toast.classList.add('show'));
+        });
+
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 500);
+        }, 3000);
+    }
+
+    // === State ===
     loadState() {
         const saved = localStorage.getItem('nihongo_state');
-        if (saved) return JSON.parse(saved);
+        if (saved) {
+            const s = JSON.parse(saved);
+            // Migrate old state
+            if (!s.studyDates) s.studyDates = [];
+            if (!s.achievements) s.achievements = [];
+            if (!s.perfectQuiz) s.perfectQuiz = false;
+            if (!s.nightStudy) s.nightStudy = false;
+            return s;
+        }
         return {
             streak: 0,
             lastStudyDate: null,
             wordsLearned: [],
             kanaMastered: [],
             totalDays: 0,
-            reviewCards: [], // { word, nextReview, interval, ease }
+            reviewCards: [],
             dailyTasks: { kana: false, vocab: false, quiz: false },
             dailyDate: null,
+            studyDates: [],
+            achievements: [],
+            perfectQuiz: false,
+            nightStudy: false,
         };
     }
 
@@ -38,19 +166,22 @@ class NihongoApp {
     }
 
     init() {
-        // Show splash then home
-        setTimeout(() => this.navigate('home'), 1200);
-
-        // Check streak
+        setTimeout(() => this.navigate('home'), 1400);
         this.checkStreak();
         this.updateHome();
 
-        // Bind navigation
+        // Navigation
         document.querySelectorAll('.module-card').forEach(card => {
-            card.addEventListener('click', () => this.navigate(card.dataset.page));
+            card.addEventListener('click', () => {
+                this.vibrate(5);
+                this.navigate(card.dataset.page);
+            });
         });
         document.querySelectorAll('.back-btn').forEach(btn => {
-            btn.addEventListener('click', () => this.navigate(btn.dataset.page));
+            btn.addEventListener('click', () => {
+                this.vibrate(5);
+                this.navigate(btn.dataset.page);
+            });
         });
         document.querySelectorAll('[data-page]').forEach(el => {
             if (!el.classList.contains('module-card') && !el.classList.contains('back-btn')) {
@@ -82,7 +213,17 @@ class NihongoApp {
         document.getElementById('review-good')?.addEventListener('click', () => this.reviewAction('good'));
         document.getElementById('review-easy')?.addEventListener('click', () => this.reviewAction('easy'));
 
+        // Avatar -> achievements
+        document.getElementById('avatar-btn')?.addEventListener('click', () => this.navigate('achievements'));
+
         this.renderKanaGrid();
+
+        // Night study check
+        const hour = new Date().getHours();
+        if (hour >= 23 || hour < 4) {
+            this.state.nightStudy = true;
+            this.saveState();
+        }
     }
 
     checkStreak() {
@@ -110,9 +251,15 @@ class NihongoApp {
             this.state.lastStudyDate = today;
             this.state.streak++;
             this.state.totalDays++;
+            // Record study date
+            const dateStr = new Date().toISOString().split('T')[0];
+            if (!this.state.studyDates.includes(dateStr)) {
+                this.state.studyDates.push(dateStr);
+            }
         }
         this.saveState();
         this.updateHome();
+        this.checkAchievements();
     }
 
     navigate(page) {
@@ -124,16 +271,16 @@ class NihongoApp {
             this.currentScreen = page;
         }
 
-        // Init page content
         if (page === 'home') this.updateHome();
         if (page === 'kana') this.renderKanaGrid();
         if (page === 'vocab') this.renderVocab();
         if (page === 'quiz') this.startQuiz();
         if (page === 'review') this.initReview();
+        if (page === 'achievements') this.renderAchievements();
     }
 
     updateHome() {
-        // Greeting based on time
+        // Greeting
         const hour = new Date().getHours();
         let greet = 'こんにちは';
         if (hour < 6) greet = 'おやすみ';
@@ -152,10 +299,53 @@ class NihongoApp {
         const circumference = 326.73;
         circle.style.strokeDashoffset = circumference - (done / 3) * circumference;
 
+        // Module card status
+        document.querySelectorAll('.module-card').forEach(card => {
+            const page = card.dataset.page;
+            if (tasks[page]) {
+                card.classList.add('completed');
+            } else {
+                card.classList.remove('completed');
+            }
+        });
+
         // Stats
         document.getElementById('stat-words').textContent = this.state.wordsLearned.length;
         document.getElementById('stat-kana').textContent = this.state.kanaMastered.length;
         document.getElementById('stat-days').textContent = this.state.totalDays;
+
+        // Calendar heatmap
+        this.renderCalendar();
+    }
+
+    renderCalendar() {
+        const grid = document.getElementById('calendar-grid');
+        if (!grid) return;
+        grid.innerHTML = '';
+
+        const today = new Date();
+        const startDate = new Date(today);
+        startDate.setDate(startDate.getDate() - 27); // Last 28 days
+
+        for (let i = 0; i < 28; i++) {
+            const d = new Date(startDate);
+            d.setDate(d.getDate() + i);
+            const dateStr = d.toISOString().split('T')[0];
+            const cell = document.createElement('div');
+            cell.className = 'calendar-day';
+
+            if (this.state.studyDates.includes(dateStr)) {
+                cell.classList.add('level-2');
+            }
+            if (d.toDateString() === today.toDateString()) {
+                cell.classList.add('today');
+                if (this.state.studyDates.includes(dateStr)) {
+                    cell.classList.add('level-3');
+                }
+            }
+
+            grid.appendChild(cell);
+        }
     }
 
     // === KANA ===
@@ -165,7 +355,6 @@ class NihongoApp {
         document.querySelectorAll('.kana-tab').forEach(t => t.classList.remove('active'));
         document.querySelector(`[data-type="${type}"]`).classList.add('active');
         this.renderKanaGrid();
-        // Reset display
         const data = type === 'katakana' ? KATAKANA : HIRAGANA;
         const first = data.find(k => k.char.trim());
         if (first) {
@@ -180,7 +369,7 @@ class NihongoApp {
         const data = this.kanaType === 'katakana' ? KATAKANA : HIRAGANA;
         grid.innerHTML = '';
 
-        data.forEach((k, i) => {
+        data.forEach((k) => {
             const cell = document.createElement('div');
             cell.className = 'kana-cell';
             if (!k.char.trim()) {
@@ -196,7 +385,10 @@ class NihongoApp {
                 <span class="kana-cell-char">${k.char}</span>
                 <span class="kana-cell-romaji">${k.romaji}</span>
             `;
-            cell.addEventListener('click', () => this.selectKana(k, cell));
+            cell.addEventListener('click', () => {
+                this.playSound('tap');
+                this.selectKana(k, cell);
+            });
             grid.appendChild(cell);
         });
     }
@@ -232,12 +424,15 @@ class NihongoApp {
 
         const q = this.kanaQuizQuestions[this.kanaQuizIndex];
         document.getElementById('kana-quiz-char').textContent = q.char;
+        document.getElementById('kana-quiz-char').style.animation = 'none';
+        requestAnimationFrame(() => {
+            document.getElementById('kana-quiz-char').style.animation = 'popIn 0.3s ease';
+        });
         document.getElementById('kana-score').textContent = `${this.kanaQuizCorrect}/${this.kanaQuizIndex}`;
         document.getElementById('kana-quiz-progress').style.width =
             `${(this.kanaQuizIndex / this.kanaQuizQuestions.length) * 100}%`;
         document.getElementById('kana-feedback').textContent = '';
 
-        // Generate options
         const data = this.kanaType === 'katakana' ? KATAKANA : HIRAGANA;
         const valid = data.filter(k => k.char.trim() && k.romaji !== q.romaji);
         const wrong = this.shuffle(valid).slice(0, 3).map(k => k.romaji);
@@ -261,10 +456,11 @@ class NihongoApp {
         if (selected === correct) {
             btn.classList.add('correct');
             this.kanaQuizCorrect++;
+            this.playSound('correct');
+            this.vibrate(5);
             document.getElementById('kana-feedback').textContent = '✓ 正确！';
             document.getElementById('kana-feedback').style.color = 'var(--success)';
 
-            // Mark mastered
             const q = this.kanaQuizQuestions[this.kanaQuizIndex];
             if (!this.state.kanaMastered.includes(q.char)) {
                 this.state.kanaMastered.push(q.char);
@@ -272,6 +468,8 @@ class NihongoApp {
             }
         } else {
             btn.classList.add('wrong');
+            this.playSound('wrong');
+            this.vibrate(30);
             options.forEach(o => { if (o.textContent === correct) o.classList.add('correct'); });
             document.getElementById('kana-feedback').textContent = `✗ 正确答案是 ${correct}`;
             document.getElementById('kana-feedback').style.color = 'var(--error)';
@@ -285,12 +483,16 @@ class NihongoApp {
 
     endKanaQuiz() {
         this.markDailyTask('kana');
-        // Show result in the quiz area
+
+        if (this.kanaQuizCorrect === this.kanaQuizQuestions.length) {
+            this.showConfetti();
+        }
+
         document.getElementById('kana-quiz-char').textContent = '🎉';
         document.getElementById('kana-quiz-options').innerHTML = `
             <div style="text-align:center; padding:20px;">
-                <p style="font-size:24px; margin-bottom:8px;">测验完成！</p>
-                <p style="font-size:18px; color:var(--accent-light);">${this.kanaQuizCorrect} / ${this.kanaQuizQuestions.length}</p>
+                <p style="font-size:24px; margin-bottom:8px; font-weight:600;">测验完成！</p>
+                <p style="font-size:20px; color:var(--accent-light);">${this.kanaQuizCorrect} / ${this.kanaQuizQuestions.length}</p>
                 <p style="margin-top:16px; color:var(--text-secondary);">
                     ${this.kanaQuizCorrect >= 8 ? '太棒了！🌟' : this.kanaQuizCorrect >= 5 ? '不错，继续加油！💪' : '多练习几次就好了～'}
                 </p>
@@ -310,14 +512,31 @@ class NihongoApp {
         document.getElementById('vocab-example-jp').textContent = v.exampleJp;
         document.getElementById('vocab-example-cn').textContent = v.exampleCn;
         document.getElementById('vocab-counter').textContent = `${this.vocabIndex + 1} / ${VOCABULARY.length}`;
+
+        // Category badge
+        const catEl = document.getElementById('vocab-category');
+        if (catEl && v.category) {
+            catEl.textContent = v.category;
+            catEl.style.display = 'inline-block';
+        }
+
+        // Animate card
+        const card = document.getElementById('vocab-card');
+        card.style.animation = 'none';
+        requestAnimationFrame(() => {
+            card.style.animation = 'fadeInUp 0.3s ease';
+        });
     }
 
     vocabNav(dir) {
+        this.vibrate(5);
         this.vocabIndex = (this.vocabIndex + dir + VOCABULARY.length) % VOCABULARY.length;
         this.renderVocab();
     }
 
     markVocabKnown() {
+        this.playSound('correct');
+        this.vibrate(5);
         const v = VOCABULARY[this.vocabIndex];
         if (!this.state.wordsLearned.includes(v.word)) {
             this.state.wordsLearned.push(v.word);
@@ -328,6 +547,8 @@ class NihongoApp {
     }
 
     addToReview() {
+        this.playSound('tap');
+        this.vibrate(5);
         const v = VOCABULARY[this.vocabIndex];
         const exists = this.state.reviewCards.find(c => c.word === v.word);
         if (!exists) {
@@ -337,7 +558,7 @@ class NihongoApp {
                 meaning: v.meaning,
                 exampleJp: v.exampleJp,
                 nextReview: Date.now(),
-                interval: 1, // days
+                interval: 1,
                 ease: 2.5,
             });
             if (!this.state.wordsLearned.includes(v.word)) {
@@ -346,10 +567,15 @@ class NihongoApp {
             this.markDailyTask('vocab');
             this.saveState();
         }
-        // Visual feedback
         const btn = document.getElementById('vocab-learn');
         btn.textContent = '✓ 已加入';
-        setTimeout(() => { btn.textContent = '📝 加入复习'; }, 1000);
+        btn.style.borderColor = 'var(--success)';
+        btn.style.color = 'var(--success)';
+        setTimeout(() => {
+            btn.textContent = '📝 加入复习';
+            btn.style.borderColor = '';
+            btn.style.color = '';
+        }, 1200);
     }
 
     // === QUIZ ===
@@ -359,7 +585,7 @@ class NihongoApp {
         document.querySelector('#quiz .quiz-card').style.display = 'block';
         document.querySelector('#quiz .quiz-progress-bar').style.display = 'block';
 
-        const pool = VOCABULARY.slice(0, Math.max(5, this.state.wordsLearned.length + 3));
+        const pool = VOCABULARY.slice(0, Math.max(8, this.state.wordsLearned.length + 5));
         this.quizQuestions = this.shuffle(pool).slice(0, 5);
         this.quizIndex = 0;
         this.quizCorrect = 0;
@@ -374,11 +600,14 @@ class NihongoApp {
 
         const q = this.quizQuestions[this.quizIndex];
         document.getElementById('quiz-question').textContent = q.word;
+        document.getElementById('quiz-question').style.animation = 'none';
+        requestAnimationFrame(() => {
+            document.getElementById('quiz-question').style.animation = 'popIn 0.3s ease';
+        });
         document.getElementById('quiz-score').textContent = `${this.quizCorrect}/${this.quizIndex}`;
         document.getElementById('quiz-progress').style.width =
             `${(this.quizIndex / this.quizQuestions.length) * 100}%`;
 
-        // Options
         const wrong = VOCABULARY.filter(v => v.word !== q.word);
         const wrongOpts = this.shuffle(wrong).slice(0, 3).map(v => v.meaning);
         const options = this.shuffle([q.meaning, ...wrongOpts]);
@@ -401,8 +630,12 @@ class NihongoApp {
         if (selected === correct) {
             btn.classList.add('correct');
             this.quizCorrect++;
+            this.playSound('correct');
+            this.vibrate(5);
         } else {
             btn.classList.add('wrong');
+            this.playSound('wrong');
+            this.vibrate(30);
             options.forEach(o => { if (o.textContent === correct) o.classList.add('correct'); });
         }
 
@@ -424,6 +657,10 @@ class NihongoApp {
         if (this.quizCorrect === this.quizQuestions.length) {
             document.getElementById('result-icon').textContent = '🎉';
             document.getElementById('result-text').textContent = '全对！太厉害了！';
+            this.state.perfectQuiz = true;
+            this.saveState();
+            this.showConfetti();
+            this.checkAchievements();
         } else if (this.quizCorrect >= 3) {
             document.getElementById('result-icon').textContent = '👏';
             document.getElementById('result-text').textContent = '不错！继续努力';
@@ -433,7 +670,7 @@ class NihongoApp {
         }
     }
 
-    // === REVIEW (Spaced Repetition) ===
+    // === REVIEW ===
 
     initReview() {
         const now = Date.now();
@@ -456,7 +693,8 @@ class NihongoApp {
         if (this.reviewIndex >= this.reviewQueue.length) {
             document.getElementById('review-card').style.display = 'none';
             document.getElementById('review-progress').innerHTML =
-                '<span style="font-size:24px;">🎊</span><br>今日复习完成！';
+                '<span style="font-size:32px;">🎊</span><br><br>今日复习完成！';
+            this.showConfetti();
             return;
         }
 
@@ -471,11 +709,13 @@ class NihongoApp {
     }
 
     flipReviewCard() {
+        this.playSound('tap');
         document.getElementById('review-front').style.display = 'none';
         document.getElementById('review-back').style.display = 'block';
     }
 
     reviewAction(action) {
+        this.vibrate(5);
         const card = this.reviewQueue[this.reviewIndex];
         const stateCard = this.state.reviewCards.find(c => c.word === card.word);
 
@@ -496,6 +736,28 @@ class NihongoApp {
         this.saveState();
         this.reviewIndex++;
         this.showReviewCard();
+    }
+
+    // === ACHIEVEMENTS PAGE ===
+
+    renderAchievements() {
+        const container = document.getElementById('achievements-list');
+        if (!container) return;
+        container.innerHTML = '';
+
+        for (const ach of ACHIEVEMENTS) {
+            const unlocked = this.state.achievements.includes(ach.id);
+            const el = document.createElement('div');
+            el.className = 'achievement-item' + (unlocked ? ' unlocked' : '');
+            el.innerHTML = `
+                <span class="ach-icon">${unlocked ? ach.icon : '🔒'}</span>
+                <div class="ach-info">
+                    <div class="ach-name">${ach.name}</div>
+                    <div class="ach-desc">${ach.desc}</div>
+                </div>
+            `;
+            container.appendChild(el);
+        }
     }
 
     // === UTILS ===
