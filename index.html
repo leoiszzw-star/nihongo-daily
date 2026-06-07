@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1a1a2e">
+    <title>日本語 Daily</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Splash / Loading -->
+        <div id="splash" class="screen active">
+            <div class="splash-content">
+                <div class="splash-icon">🇯🇵</div>
+                <h1>日本語 Daily</h1>
+                <p class="splash-sub">每天一点点，日语变简单</p>
+            </div>
+        </div>
+
+        <!-- Home Screen -->
+        <div id="home" class="screen">
+            <header class="home-header">
+                <div class="greeting">
+                    <h1 id="greeting-text">おはよう、Daddy</h1>
+                    <p class="streak" id="streak-text">🔥 连续学习 0 天</p>
+                </div>
+                <div class="avatar" id="avatar-btn">🧦</div>
+            </header>
+
+            <div class="progress-card">
+                <div class="progress-ring-container">
+                    <svg class="progress-ring" viewBox="0 0 120 120">
+                        <circle class="progress-ring-bg" cx="60" cy="60" r="52"/>
+                        <circle class="progress-ring-fill" id="daily-progress" cx="60" cy="60" r="52"/>
+                    </svg>
+                    <div class="progress-center">
+                        <span class="progress-num" id="progress-num">0</span>
+                        <span class="progress-label">/ 3 今日任务</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="module-grid">
+                <div class="module-card" data-page="kana">
+                    <div class="module-icon">あ</div>
+                    <div class="module-info">
+                        <h3>假名练习</h3>
+                        <p>平假名 & 片假名</p>
+                    </div>
+                    <div class="module-arrow">›</div>
+                </div>
+
+                <div class="module-card" data-page="vocab">
+                    <div class="module-icon">📖</div>
+                    <div class="module-info">
+                        <h3>每日词汇</h3>
+                        <p>今天的新词</p>
+                    </div>
+                    <div class="module-arrow">›</div>
+                </div>
+
+                <div class="module-card" data-page="quiz">
+                    <div class="module-icon">🎯</div>
+                    <div class="module-info">
+                        <h3>小测验</h3>
+                        <p>检验记忆</p>
+                    </div>
+                    <div class="module-arrow">›</div>
+                </div>
+
+                <div class="module-card" data-page="review">
+                    <div class="module-icon">🔄</div>
+                    <div class="module-info">
+                        <h3>复习</h3>
+                        <p>间隔重复</p>
+                    </div>
+                    <div class="module-arrow">›</div>
+                </div>
+            </div>
+
+            <div class="stats-row">
+                <div class="stat-item">
+                    <span class="stat-num" id="stat-words">0</span>
+                    <span class="stat-label">已学词汇</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-num" id="stat-kana">0</span>
+                    <span class="stat-label">已掌握假名</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-num" id="stat-days">0</span>
+                    <span class="stat-label">学习天数</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Kana Practice Screen -->
+        <div id="kana" class="screen">
+            <header class="sub-header">
+                <button class="back-btn" data-page="home">‹</button>
+                <h2>假名练习</h2>
+                <div class="header-action"></div>
+            </header>
+
+            <div class="kana-tabs">
+                <button class="kana-tab active" data-type="katakana">片假名</button>
+                <button class="kana-tab" data-type="hiragana">平假名</button>
+            </div>
+
+            <div class="kana-display">
+                <div class="kana-big" id="kana-char">ア</div>
+                <div class="kana-romaji" id="kana-romaji">a</div>
+                <div class="kana-hint" id="kana-hint">点击翻转查看</div>
+            </div>
+
+            <div class="kana-grid" id="kana-grid">
+                <!-- Generated by JS -->
+            </div>
+
+            <div class="kana-actions">
+                <button class="btn-primary" id="kana-quiz-btn">开始测验</button>
+            </div>
+        </div>
+
+        <!-- Kana Quiz Screen -->
+        <div id="kana-quiz" class="screen">
+            <header class="sub-header">
+                <button class="back-btn" data-page="kana">‹</button>
+                <h2>假名测验</h2>
+                <div class="quiz-score" id="kana-score">0/0</div>
+            </header>
+
+            <div class="quiz-progress-bar">
+                <div class="quiz-progress-fill" id="kana-quiz-progress"></div>
+            </div>
+
+            <div class="quiz-card">
+                <div class="quiz-question" id="kana-quiz-char">ア</div>
+                <div class="quiz-options" id="kana-quiz-options">
+                    <!-- Generated by JS -->
+                </div>
+            </div>
+
+            <div class="quiz-feedback" id="kana-feedback"></div>
+        </div>
+
+        <!-- Vocab Screen -->
+        <div id="vocab" class="screen">
+            <header class="sub-header">
+                <button class="back-btn" data-page="home">‹</button>
+                <h2>每日词汇</h2>
+                <div class="header-action"></div>
+            </header>
+
+            <div class="vocab-card" id="vocab-card">
+                <div class="vocab-word" id="vocab-word">テレビ</div>
+                <div class="vocab-reading" id="vocab-reading">terebi</div>
+                <div class="vocab-meaning" id="vocab-meaning">电视</div>
+                <div class="vocab-example">
+                    <p class="example-jp" id="vocab-example-jp">テレビを見ます。</p>
+                    <p class="example-cn" id="vocab-example-cn">看电视。</p>
+                </div>
+            </div>
+
+            <div class="vocab-nav">
+                <button class="btn-circle" id="vocab-prev">‹</button>
+                <span class="vocab-counter" id="vocab-counter">1 / 5</span>
+                <button class="btn-circle" id="vocab-next">›</button>
+            </div>
+
+            <div class="vocab-actions">
+                <button class="btn-secondary" id="vocab-known">✓ 已掌握</button>
+                <button class="btn-primary" id="vocab-learn">📝 加入复习</button>
+            </div>
+        </div>
+
+        <!-- Quiz Screen -->
+        <div id="quiz" class="screen">
+            <header class="sub-header">
+                <button class="back-btn" data-page="home">‹</button>
+                <h2>小测验</h2>
+                <div class="quiz-score" id="quiz-score">0/0</div>
+            </header>
+
+            <div class="quiz-progress-bar">
+                <div class="quiz-progress-fill" id="quiz-progress"></div>
+            </div>
+
+            <div class="quiz-card">
+                <div class="quiz-prompt" id="quiz-prompt">这个词的意思是？</div>
+                <div class="quiz-question" id="quiz-question">コーヒー</div>
+                <div class="quiz-options" id="quiz-options">
+                    <!-- Generated by JS -->
+                </div>
+            </div>
+
+            <div class="quiz-result" id="quiz-result" style="display:none;">
+                <div class="result-icon" id="result-icon">🎉</div>
+                <div class="result-text" id="result-text">太棒了！</div>
+                <div class="result-score" id="result-score">5/5</div>
+                <button class="btn-primary" id="quiz-retry">再来一轮</button>
+                <button class="btn-secondary" data-page="home">返回首页</button>
+            </div>
+        </div>
+
+        <!-- Review Screen -->
+        <div id="review" class="screen">
+            <header class="sub-header">
+                <button class="back-btn" data-page="home">‹</button>
+                <h2>复习</h2>
+                <div class="header-action"></div>
+            </header>
+
+            <div class="review-empty" id="review-empty">
+                <div class="empty-icon">📚</div>
+                <p>还没有需要复习的内容</p>
+                <p class="empty-hint">学习新词汇后，它们会出现在这里</p>
+            </div>
+
+            <div class="review-card" id="review-card" style="display:none;">
+                <div class="review-front" id="review-front">
+                    <div class="review-word" id="review-word">テレビ</div>
+                    <p class="review-tap">点击翻转</p>
+                </div>
+                <div class="review-back" id="review-back" style="display:none;">
+                    <div class="review-meaning" id="review-meaning">电视</div>
+                    <div class="review-example" id="review-example">テレビを見ます。</div>
+                    <div class="review-buttons">
+                        <button class="btn-again" id="review-again">😅 再来</button>
+                        <button class="btn-good" id="review-good">👍 记住了</button>
+                        <button class="btn-easy" id="review-easy">⚡ 太简单</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="review-progress" id="review-progress" style="display:none;">
+                <span id="review-remaining">剩余 0 张卡片</span>
+            </div>
+        </div>
+    </div>
+
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js');
+        }
+    </script>
+</body>
+</html>
